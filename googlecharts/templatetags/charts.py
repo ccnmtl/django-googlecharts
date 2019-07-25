@@ -82,19 +82,19 @@ chxp=0,%s\
 @register.tag
 def chart(parser, token):
     bits = iter(token.split_contents())
-    name = bits.next()
+    name = next(bits)
     varname = None
     saveas = None
     extends = None
     for bit in bits:
         if bit == "as":
-            varname = bits.next()
+            varname = next(bits)
         elif bit == "saveas":
             raise template.TemplateSyntaxError(
                 "Sorry, 'saveas' isn't implemented yet!")
-            saveas = template.Variable(bits.next())
+            saveas = template.Variable(next(bits))
         elif bit == "extends":
-            extends = template.Variable(bits.next())
+            extends = template.Variable(next(bits))
         else:
             raise template.TemplateSyntaxError(
                 "Unknown argument to '%s': '%s'" % (name, bit))
@@ -282,7 +282,7 @@ class Chart(object):
 @register.tag(name="chart-data")
 def chart_data(parser, token):
     bits = iter(token.split_contents())
-    bits.next()  # name
+    next(bits)  # name
     datasets = map(parser.compile_filter, bits)
     return ChartDataNode(datasets, "chart-data")
 
@@ -290,7 +290,7 @@ def chart_data(parser, token):
 @register.tag(name="chart-data-hidden")
 def chart_data_hidden(parser, token):
     bits = iter(token.split_contents())
-    bits.next()  # name
+    next(bits)  # name
     datasets = map(parser.compile_filter, bits)
     return ChartHiddenDataNode(datasets)
 
@@ -307,7 +307,7 @@ def chart_grid_lines_data(parser, token):
     allow for the guides to be drawn on top of the data.
     """
     bits = iter(token.split_contents())
-    bits.next()  # name
+    next(bits)  # name
     data_obj = map(parser.compile_filter, bits)
     return ChartDataNode(data_obj, "chart-grid-lines-data")
 
@@ -453,20 +453,20 @@ def option(tagname, multi=None, nodeclass=ChartOptionNode):
         args, varargs, varkw, defaults = inspect.getargspec(func)
         max_args = min_args = 0
         if args:
-            max_args = len(args)
+            max_args = len(list(args))
         if defaults:
-            min_args = max_args - len(defaults)
+            min_args = max_args - len(list(defaults))
         unlimited = bool(varargs)
 
         def template_tag_callback(parser, token):
             bits = iter(token.split_contents())
-            name = bits.next()
+            name = next(bits)
             args = map(template.Variable, bits)
 
-            if not unlimited and len(args) < min_args:
+            if not unlimited and len(list(args)) < min_args:
                 raise template.TemplateSyntaxError(
                     "Too few arguments to '%s'" % name)
-            if not unlimited and len(args) > max_args:
+            if not unlimited and len(list(args)) > max_args:
                 raise template.TemplateSyntaxError(
                     "Too many arguments to '%s'" % name)
 
