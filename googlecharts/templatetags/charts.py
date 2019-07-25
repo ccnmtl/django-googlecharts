@@ -453,9 +453,9 @@ def option(tagname, multi=None, nodeclass=ChartOptionNode):
         args, varargs, varkw, defaults = inspect.getargspec(func)
         max_args = min_args = 0
         if args:
-            max_args = len(args)
+            max_args = len(list(args))
         if defaults:
-            min_args = max_args - len(defaults)
+            min_args = max_args - len(list(defaults))
         unlimited = bool(varargs)
 
         def template_tag_callback(parser, token):
@@ -463,10 +463,10 @@ def option(tagname, multi=None, nodeclass=ChartOptionNode):
             name = next(bits)
             args = map(template.Variable, bits)
 
-            if not unlimited and len(args) < min_args:
+            if not unlimited and len(list(args)) < min_args:
                 raise template.TemplateSyntaxError(
                     "Too few arguments to '%s'" % name)
-            if not unlimited and len(args) > max_args:
+            if not unlimited and len(list(args)) > max_args:
                 raise template.TemplateSyntaxError(
                     "Too many arguments to '%s'" % name)
 
