@@ -1,6 +1,8 @@
 import inspect
 from collections import OrderedDict
 import colorsys
+from collections import Iterable, Mapping
+from operator import methodcaller
 from six import string_types
 
 from itertools import chain
@@ -140,7 +142,7 @@ class ChartNode(template.Node):
         # Create some additional images showing only one of the colors,
         # replacing the others with grayed-out images
         if '_final_color_map' in c.options:
-            for o in c.options['_final_color_map'].items():
+            for o in list(c.options['_final_color_map'].items()):
                 context["chart_%s_only" % o[1]] = c.img(color_override=o[0])
 
         if self.varname:
@@ -264,7 +266,7 @@ class Chart(object):
     def charts(self):
         res = []
         count = 1
-        for o in self.options['_final_color_map'].items():
+        for o in list(self.options['_final_color_map'].items()):
             res.append({
                 'id': count,
                 'color': o[0],
@@ -283,7 +285,7 @@ class Chart(object):
 def chart_data(parser, token):
     bits = iter(token.split_contents())
     next(bits)  # name
-    datasets = map(parser.compile_filter, bits)
+    datasets = list(map(parser.compile_filter, bits))
     return ChartDataNode(datasets, "chart-data")
 
 
@@ -291,7 +293,7 @@ def chart_data(parser, token):
 def chart_data_hidden(parser, token):
     bits = iter(token.split_contents())
     next(bits)  # name
-    datasets = map(parser.compile_filter, bits)
+    datasets = list(map(parser.compile_filter, bits))
     return ChartHiddenDataNode(datasets)
 
 
@@ -308,7 +310,7 @@ def chart_grid_lines_data(parser, token):
     """
     bits = iter(token.split_contents())
     next(bits)  # name
-    data_obj = map(parser.compile_filter, bits)
+    data_obj = list(map(parser.compile_filter, bits))
     return ChartDataNode(data_obj, "chart-grid-lines-data")
 
 
@@ -331,13 +333,13 @@ class ChartDataNode(template.Node):
                 # XXX need different ways of representing pre-encoded
                 # data, data with different separators, etc.
                 if isinstance(data, string_types):
-                    data = filter(None, map(safefloat, data.split(",")))
+                    data = [_f for _f in map(safefloat, data.split(",")) if _f]
                 else:
                     # I don't understand why you would remove zero
                     # values, as this does?  I'm going to comment it
                     # out and use my own version
                     # data = filter(None, map(safefloat, data))
-                    data = map(safefloat, data)
+                    data = list(map(safefloat, data))
                 resolved.append(data)
 
         # If the data is provided by the {% chart-grid-lines-data %} tag ...
@@ -356,10 +358,11 @@ class ChartDataNode(template.Node):
 
                     # Conduct the same filtering as above
                     if isinstance(data, string_types):
-                        series = filter(
-                            None, map(safefloat, series.split(",")))
+                        series = [
+                            _f for _f in map(
+                                safefloat, series.split(",")) if _f]
                     else:
-                        series = map(safefloat, series)
+                        series = list(map(safefloat, series))
 
                     # And if there's anything there ...
                     if series:
@@ -388,9 +391,9 @@ class ChartHiddenDataNode(template.Node):
             # XXX need different ways of representing pre-encoded
             # data, data with different separators, etc.
             if isinstance(data, string_types):
-                data = filter(None, map(safefloat, data.split(",")))
+                data = [_f for _f in map(safefloat, data.split(",")) if _f]
             else:
-                data = map(safefloat, data)
+                data = list(map(safefloat, data))
             resolved.append(data)
 
         return resolved
@@ -413,7 +416,7 @@ class OptionNode(template.Node):
         return ""
 
     def resolve_arguments(self, context):
-        for arg in self.args:
+        for arg in list(self.args):
             try:
                 yield arg.resolve(context)
             except template.VariableDoesNotExist:
@@ -461,7 +464,7 @@ def option(tagname, multi=None, nodeclass=ChartOptionNode):
         def template_tag_callback(parser, token):
             bits = iter(token.split_contents())
             name = next(bits)
-            args = map(template.Variable, bits)
+            args = list(map(template.Variable, bits))
 
             if not unlimited and len(list(args)) < min_args:
                 raise template.TemplateSyntaxError(
@@ -830,7 +833,7 @@ def chart_map_area(where):
 def chart_map_data(data):
     place_list = []
     value_list = []
-    for (k, v) in data.items():
+    for (k, v) in list(data.items()):
         place_list.append(k)
         value_list.append(v)
     return {
@@ -961,7 +964,7 @@ class MetadataNode(ChartOptionNode):
 def chart_data_range(chart, lower=None, upper=None):
     if lower and upper:
         try:
-            map(float, (lower, upper))
+            list(map(float, (lower, upper)))
         except ValueError:
             return
         chart.datarange = (lower, upper)
@@ -1011,17 +1014,31 @@ def urlencode(query, safe="/:,|"):
     '''Omit any options that begin with _; for internal use'''
 
     if hasattr(query, "items"):
-        query = query.items()
+        query = list(query.items())
 
     qlist = ["%s=%s" % (quote_plus(k, safe=safe), quote_plus(v, safe=safe))
              for (k, v) in query if not k.startswith('_')]
     return "&".join(qlist)
 
 
-def flatten(iterator):
-    for i in iterator:
-        if hasattr(i, "__iter__"):
-            for j in flatten(iter(i)):
-                yield j
-        else:
-            yield i
+# https://codereview.stackexchange.com/a/122599
+def flatten(it, map_iter='values', max_depth=128):
+    if max_depth < 0:
+        try:
+            raise RecursionError('maximum recursion depth exceded in flatten')
+        except NameError:
+            raise Exception('maximum recursion depth exceded in flatten')
+    elif isinstance(it, str):
+        yield it
+    elif isinstance(it, Mapping):
+        for item in methodcaller(map_iter)(it):
+            for x in flatten(
+                    item, map_iter=map_iter, max_depth=max_depth-1):
+                yield x
+    elif isinstance(it, Iterable):
+        for item in it:
+            for x in flatten(
+                    item, map_iter=map_iter, max_depth=max_depth-1):
+                yield x
+    else:
+        yield it
