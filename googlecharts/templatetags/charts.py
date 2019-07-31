@@ -1036,9 +1036,7 @@ def flatten(it, map_iter='values', max_depth=128):
                     item, map_iter=map_iter, max_depth=max_depth-1):
                 yield x
     elif isinstance(it, Iterable):
-        for item in it:
-            for x in flatten(
-                    item, map_iter=map_iter, max_depth=max_depth-1):
-                yield x
+        for x in it:
+            yield x
     else:
         yield it
