@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='django-googlecharts',
-    version='1.2ctl',
+    version='1.3ctl',
     description='Django template tags to generate charts using ' +
     'the Google chart API.',
     long_description=open("README").read(),
